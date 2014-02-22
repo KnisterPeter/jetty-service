@@ -7,6 +7,7 @@ import java.util.Hashtable;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.ContextHandlerCollection;
 import org.eclipse.jetty.server.nio.SelectChannelConnector;
@@ -32,6 +33,8 @@ public class Jetty implements ManagedService {
 	private ServiceRegistration<ManagedService> registration;
 
 	private Server server;
+
+	private ContextHandlerCollection handlerCollection;
 
 	private Registrator registrator;
 
@@ -63,12 +66,13 @@ public class Jetty implements ManagedService {
 	}
 
 	@Override
-	public void updated(Dictionary<String, ?> properties)
+	public synchronized void updated(Dictionary<String, ?> properties)
 			throws ConfigurationException {
 		try {
 			if (server != null) {
 				server.stop();
 				server = null;
+				handlerCollection = null;
 				handlers.clear();
 			}
 			if (properties != null) {
@@ -79,7 +83,8 @@ public class Jetty implements ManagedService {
 				connector.setHost(getString(properties, "host", null));
 				connector.setPort(getInteger(properties, "port", 8181));
 				server.addConnector(connector);
-				server.setHandler(new ContextHandlerCollection());
+				handlerCollection = new ContextHandlerCollection();
+				server.setHandler(handlerCollection);
 				server.start();
 				LOGGER.info("Started jetty server");
 
@@ -111,11 +116,11 @@ public class Jetty implements ManagedService {
 		return value != null ? Integer.valueOf(value.toString()) : ifNull;
 	}
 
-	public void addServletContext(ServletContext servletContext,
+	public synchronized void addServletContext(ServletContext servletContext,
 			ServiceReference<ServletContext> reference) {
 		LOGGER.info("Adding ServletContext: {}", servletContext);
 		servletContexts.put(servletContext, reference);
-		if (server != null) {
+		if (server != null && !handlers.containsKey(servletContext)) {
 			try {
 				registerServletContext(servletContext, reference);
 				registrator.addServletContext(servletContext,
@@ -126,12 +131,11 @@ public class Jetty implements ManagedService {
 		}
 	}
 
-	public void removeServletContext(ServletContext servletContext,
+	public synchronized void removeServletContext(
+			ServletContext servletContext,
 			ServiceReference<ServletContext> reference) {
 		LOGGER.info("Removing ServletContext: {}", servletContext);
-		if (server != null) {
-			registrator.removeServletContext(servletContext,
-					handlers.get(servletContext));
+		if (server != null && handlers.containsKey(servletContext)) {
 			unregisterServletContext(servletContext);
 		}
 		servletContexts.remove(servletContext);
@@ -139,34 +143,53 @@ public class Jetty implements ManagedService {
 
 	private void registerServletContext(ServletContext servletContext,
 			ServiceReference<ServletContext> reference) throws Exception {
-		ServletContextHandler servletContextHandler = new ServletContextHandler(
-				ServletContextHandler.SESSIONS | ServletContextHandler.SECURITY);
-		servletContextHandler.setConnectorNames(servletContext
-				.getConnectorNames());
-		servletContextHandler.setContextPath(reference.getProperty(
-				ServletContext.CONTEXT_ID).toString());
-		servletContextHandler.setVirtualHosts(servletContext.getVirtualHosts());
-		for (String key : reference.getPropertyKeys()) {
-			if (key.startsWith("init.")) {
-				servletContextHandler.setInitParameter(key.substring(5),
-						reference.getProperty(key).toString());
+		String contextId = reference.getProperty(ServletContext.CONTEXT_ID)
+				.toString();
+		boolean deployed = false;
+		if (handlerCollection.getHandlers() != null) {
+			for (Handler handler : handlerCollection.getHandlers()) {
+				if (handler instanceof ServletContextHandler) {
+					deployed |= ((ServletContextHandler) handler)
+							.getContextPath().equals(contextId);
+				}
 			}
 		}
-		((ContextHandlerCollection) server.getHandler())
-				.addHandler(servletContextHandler);
-		servletContextHandler.start();
-		handlers.put(servletContext, servletContextHandler);
+		if (!deployed) {
+			ServletContextHandler servletContextHandler = new ServletContextHandler(
+					ServletContextHandler.SESSIONS
+							| ServletContextHandler.SECURITY);
+			servletContextHandler.setConnectorNames(servletContext
+					.getConnectorNames());
+			servletContextHandler.setContextPath(contextId);
+			servletContextHandler.setVirtualHosts(servletContext
+					.getVirtualHosts());
+			for (String key : reference.getPropertyKeys()) {
+				if (key.startsWith("init.")) {
+					servletContextHandler.setInitParameter(key.substring(5),
+							reference.getProperty(key).toString());
+				}
+			}
+			handlerCollection.addHandler(servletContextHandler);
+			if (!servletContextHandler.isStarting()
+					&& !servletContextHandler.isStarted()) {
+				servletContextHandler.start();
+			}
+			handlers.put(servletContext, servletContextHandler);
+		} else {
+			LOGGER.warn("Already registered servlet-context: FIX DOUBLE REG");
+		}
 	}
 
 	private void unregisterServletContext(ServletContext servletContext) {
-		try {
-			ServletContextHandler handler = handlers.get(servletContext);
-			registrator.removeServletContext(servletContext, handler);
-			((ContextHandlerCollection) server.getHandler())
-					.removeHandler(handler);
-			handlers.remove(servletContext);
-		} catch (Exception e) {
-			LOGGER.error("Failed to unregister ServletContext", e);
+		ServletContextHandler handler = handlers.get(servletContext);
+		if (handler != null) {
+			try {
+				registrator.removeServletContext(servletContext, handler);
+				handlerCollection.removeHandler(handler);
+				handlers.remove(servletContext);
+			} catch (Exception e) {
+				LOGGER.error("Failed to unregister ServletContext", e);
+			}
 		}
 	}
 

@@ -1,6 +1,7 @@
 package de.matrixweb.osgi.jetty.server.internal;
 
 import java.util.ArrayList;
+import java.util.EventListener;
 import java.util.List;
 
 import javax.servlet.Filter;
@@ -33,6 +34,7 @@ public class Activator implements BundleActivator {
 		jetty = new Jetty(context, registrator);
 
 		createServletContextTracker(context);
+		createListenerTracker(context);
 		createFilterTracker(context);
 		createServletTracker(context);
 
@@ -55,6 +57,23 @@ public class Activator implements BundleActivator {
 							ServiceReference<ServletContext> reference,
 							ServletContext service) {
 						jetty.removeServletContext(service, reference);
+					}
+				}));
+	}
+
+	private void createListenerTracker(BundleContext context) {
+		trackers.add(new RegisteringServiceTracker<EventListener>(context,
+				EventListener.class, new RegistrationCaller<EventListener>() {
+					@Override
+					public void add(ServiceReference<EventListener> reference,
+							EventListener service) {
+						registrator.addListener(reference, service);
+					}
+
+					@Override
+					public void remove(ServiceReference<EventListener> reference,
+							EventListener service) {
+						registrator.removeListener(reference, service);
 					}
 				}));
 	}

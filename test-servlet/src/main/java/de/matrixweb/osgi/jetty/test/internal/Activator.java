@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Dictionary;
+import java.util.EventListener;
 import java.util.Hashtable;
 import java.util.List;
 
@@ -11,6 +12,9 @@ import javax.servlet.Filter;
 import javax.servlet.FilterChain;
 import javax.servlet.FilterConfig;
 import javax.servlet.Servlet;
+import javax.servlet.ServletConfig;
+import javax.servlet.ServletContextEvent;
+import javax.servlet.ServletContextListener;
 import javax.servlet.ServletException;
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
@@ -42,6 +46,20 @@ public class Activator implements BundleActivator {
 		props.put(ServletContext.CONTEXT_ID, "/");
 		props.put("init.name", "value");
 		regs.add(context.registerService(ServletContext.class, servletContext, props));
+		
+		ServletContextListener scl =new ServletContextListener() {
+			@Override
+			public void contextInitialized(ServletContextEvent sce) {
+				LOGGER.info("CONTEXT CREATED");
+			}
+			
+			@Override
+			public void contextDestroyed(ServletContextEvent sce) {
+				LOGGER.info("CONTEXT DESTROYED");
+			}
+		};
+		props.put(ServletContext.CONTEXT_ID, "/");
+		regs.add(context.registerService(EventListener.class, scl, props));
 		
 		// Filter
 		Filter filter = new Filter() {
@@ -120,6 +138,11 @@ public class Activator implements BundleActivator {
 		// Servlet
 		Servlet servlet = new HttpServlet() {
 			@Override
+			public void init(ServletConfig config) throws ServletException {
+				LOGGER.info("SERVLET init: {}", config);
+				super.init(config);
+			}
+			@Override
 			protected void doGet(HttpServletRequest req,
 					HttpServletResponse resp) throws ServletException,
 					IOException {
@@ -130,6 +153,12 @@ public class Activator implements BundleActivator {
 				writer.write("Hello World! (global="  + getServletContext().getInitParameter("name") + ")");
 				writer.write("<br /><a href=\"/msg\">next</a>");
 				writer.close();
+			}
+			
+			@Override
+			public void destroy() {
+				LOGGER.info("SERVLET destroy");
+				super.destroy();
 			}
 		};
 		props = new Hashtable<String, Object>();
