@@ -33,16 +33,16 @@ public class Jetty implements ManagedService {
 
 	private Server server;
 
-	private ServletRegistrator servletRegistrator;
+	private Registrator registrator;
 
 	private Map<ServletContext, ServiceReference<ServletContext>> servletContexts = Collections
 			.synchronizedMap(new HashMap<ServletContext, ServiceReference<ServletContext>>());
 
 	private Map<ServletContext, ServletContextHandler> handlers = new HashMap<ServletContext, ServletContextHandler>();
 
-	public Jetty(BundleContext context, ServletRegistrator servletRegistrator) {
-		this.servletRegistrator = servletRegistrator;
-		servletRegistrator.setJetty(this);
+	public Jetty(BundleContext context, Registrator registrator) {
+		this.registrator = registrator;
+		registrator.setJetty(this);
 
 		Dictionary<String, Object> props = new Hashtable<String, Object>();
 		props.put(Constants.SERVICE_PID, "jettyservice");
@@ -87,7 +87,7 @@ public class Jetty implements ManagedService {
 						.entrySet()) {
 					registerServletContext(entry.getKey(), entry.getValue());
 				}
-				servletRegistrator.refresh();
+				registrator.refresh();
 			} else {
 				LOGGER.info("Stopped jetty server");
 			}
@@ -118,7 +118,7 @@ public class Jetty implements ManagedService {
 		if (server != null) {
 			try {
 				registerServletContext(servletContext, reference);
-				servletRegistrator.addServletContext(servletContext,
+				registrator.addServletContext(servletContext,
 						handlers.get(servletContext));
 			} catch (Exception e) {
 				LOGGER.error("Failed to register ServletContext", e);
@@ -129,12 +129,12 @@ public class Jetty implements ManagedService {
 	public void removeServletContext(ServletContext servletContext,
 			ServiceReference<ServletContext> reference) {
 		LOGGER.info("Removing ServletContext: {}", servletContext);
-		servletContexts.remove(servletContext);
 		if (server != null) {
-			servletRegistrator.removeServletContext(servletContext,
+			registrator.removeServletContext(servletContext,
 					handlers.get(servletContext));
 			unregisterServletContext(servletContext);
 		}
+		servletContexts.remove(servletContext);
 	}
 
 	private void registerServletContext(ServletContext servletContext,
@@ -143,8 +143,8 @@ public class Jetty implements ManagedService {
 				ServletContextHandler.SESSIONS | ServletContextHandler.SECURITY);
 		servletContextHandler.setConnectorNames(servletContext
 				.getConnectorNames());
-		servletContextHandler.setContextPath(reference.getProperty("contextId")
-				.toString());
+		servletContextHandler.setContextPath(reference.getProperty(
+				ServletContext.CONTEXT_ID).toString());
 		servletContextHandler.setVirtualHosts(servletContext.getVirtualHosts());
 		for (String key : reference.getPropertyKeys()) {
 			if (key.startsWith("init.")) {
@@ -160,10 +160,11 @@ public class Jetty implements ManagedService {
 
 	private void unregisterServletContext(ServletContext servletContext) {
 		try {
-			ServletContextHandler handler = handlers.remove(servletContext);
-			servletRegistrator.removeServletContext(servletContext, handler);
+			ServletContextHandler handler = handlers.get(servletContext);
+			registrator.removeServletContext(servletContext, handler);
 			((ContextHandlerCollection) server.getHandler())
 					.removeHandler(handler);
+			handlers.remove(servletContext);
 		} catch (Exception e) {
 			LOGGER.error("Failed to unregister ServletContext", e);
 		}
