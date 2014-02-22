@@ -3,6 +3,9 @@ specs. It is possible to add multiple web-components to a webapp-context from
 different bundles and share session as well as the servlet-context.
 This makes it kind of a multi-bundle war like construct.
 
+Besides the flexibility it does not fully comply to the servlet-spec nor the 
+osgi http-service spec.
+
 Configuration
 =============
 
