@@ -52,3 +52,9 @@ Servlet
     // The servlet name filter could be 'bound' to
     props.put(ServletContext.NAME, "Home");
     regs.add(context.registerService(Servlet.class, servlet, props));
+
+Credits
+-------
+
+Thanks to [SinnerSchrader](http://www.sinnerschrader.com/) for their support
+and the time to work on this project.
