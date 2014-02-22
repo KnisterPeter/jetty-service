@@ -1,10 +1,9 @@
 package de.matrixweb.osgi.jetty.server.internal;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.Map.Entry;
 
 import javax.servlet.Servlet;
@@ -17,7 +16,7 @@ import org.osgi.framework.ServiceReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import de.matrixweb.osgi.jetty.context.ServletContext;
+import de.matrixweb.osgi.jetty.api.ServletContext;
 
 public class ServletRegistrator {
 
@@ -26,8 +25,7 @@ public class ServletRegistrator {
 
 	private Jetty jetty;
 
-	private Set<Pair<Servlet, ServiceReference<Servlet>>> servlets = Collections
-			.synchronizedSet(new HashSet<Pair<Servlet, ServiceReference<Servlet>>>());
+	private Map<Servlet, ServiceReference<Servlet>> servlets = new HashMap<Servlet, ServiceReference<Servlet>>();
 
 	public void setJetty(Jetty jetty) {
 		this.jetty = jetty;
@@ -47,8 +45,11 @@ public class ServletRegistrator {
 
 	private void registerServletContext(ServletContext servletContext,
 			ServletContextHandler handler) {
-		for (Pair<Servlet, ServiceReference<Servlet>> servletPair : servlets) {
-			if (isMatchingContext(servletContext, servletPair.getValue())) {
+		for (Entry<Servlet, ServiceReference<Servlet>> servletPair : servlets
+				.entrySet()) {
+			if (isMatchingContext(
+					jetty.getServletContextReference(servletContext),
+					servletPair.getValue())) {
 				registerServlet(handler, servletPair.getValue(),
 						servletPair.getKey());
 			}
@@ -62,8 +63,11 @@ public class ServletRegistrator {
 
 	private void unregisterServletContext(ServletContext servletContext,
 			ServletContextHandler handler) {
-		for (Pair<Servlet, ServiceReference<Servlet>> servletPair : servlets) {
-			if (isMatchingContext(servletContext, servletPair.getValue())) {
+		for (Entry<Servlet, ServiceReference<Servlet>> servletPair : servlets
+				.entrySet()) {
+			if (isMatchingContext(
+					jetty.getServletContextReference(servletContext),
+					servletPair.getValue())) {
 				unregisterServlet(handler, servletPair.getValue(),
 						servletPair.getKey());
 			}
@@ -72,11 +76,9 @@ public class ServletRegistrator {
 
 	public synchronized void addServlet(ServiceReference<Servlet> reference,
 			Servlet servlet) {
-		Pair<Servlet, ServiceReference<Servlet>> pair = new Pair<Servlet, ServiceReference<Servlet>>(
-				servlet, reference);
-		if (!servlets.contains(pair)) {
+		if (!servlets.containsKey(servlet)) {
 			LOGGER.info("Adding servlet: {}", servlet);
-			servlets.add(pair);
+			servlets.put(servlet, reference);
 			registerServlet(reference, servlet);
 		}
 	}
@@ -85,7 +87,8 @@ public class ServletRegistrator {
 			Servlet servlet) {
 		for (Entry<ServletContext, ServletContextHandler> pair : jetty
 				.getHandlers().entrySet()) {
-			if (isMatchingContext(pair.getKey(), reference)) {
+			if (isMatchingContext(
+					jetty.getServletContextReference(pair.getKey()), reference)) {
 				registerServlet(pair.getValue(), reference, servlet);
 			}
 		}
@@ -93,11 +96,9 @@ public class ServletRegistrator {
 
 	public synchronized void removeServlet(ServiceReference<Servlet> reference,
 			Servlet servlet) {
-		Pair<Servlet, ServiceReference<Servlet>> pair = new Pair<Servlet, ServiceReference<Servlet>>(
-				servlet, reference);
-		if (servlets.contains(pair)) {
+		if (servlets.containsKey(servlet)) {
 			LOGGER.info("Removing servlet: {}", servlet);
-			servlets.remove(pair);
+			servlets.remove(servlet);
 			unregisterServlet(reference, servlet);
 		}
 	}
@@ -106,7 +107,8 @@ public class ServletRegistrator {
 			Servlet servlet) {
 		for (Entry<ServletContext, ServletContextHandler> pair : jetty
 				.getHandlers().entrySet()) {
-			if (isMatchingContext(pair.getKey(), reference)) {
+			if (isMatchingContext(
+					jetty.getServletContextReference(pair.getKey()), reference)) {
 				unregisterServlet(pair.getValue(), reference, servlet);
 			}
 		}
@@ -114,12 +116,19 @@ public class ServletRegistrator {
 
 	private void registerServlet(ServletContextHandler servletContextHandler,
 			ServiceReference<Servlet> reference, Servlet servlet) {
-		// TODO: Init Params
 		Object mapping = reference.getProperty("alias");
 		if (mapping != null) {
 			LOGGER.info("Mapping Servlet to: {}", mapping);
+			ServletHolder holder = new ServletHolder(servlet);
+			holder.setAsyncSupported(true);
+			for (String key : reference.getPropertyKeys()) {
+				if (key.startsWith("init.")) {
+					holder.setInitParameter(key.substring(5), reference
+							.getProperty(key).toString());
+				}
+			}
 			servletContextHandler.getServletHandler().addServletWithMapping(
-					new ServletHolder(servlet), mapping.toString());
+					holder, mapping.toString());
 		} else {
 			LOGGER.warn("Servlet without alias mapping skipped: {}", servlet);
 		}
@@ -159,56 +168,11 @@ public class ServletRegistrator {
 		servlets.remove(servlet);
 	}
 
-	private boolean isMatchingContext(ServletContext servletContext,
-			ServiceReference<Servlet> reference) {
-		return servletContext.getContextPath().equals(
-				reference.getProperty("contextId"));
-	}
-
-	private static class Pair<K, V> {
-
-		private K key;
-
-		private V value;
-
-		public Pair(K reference, V servlet) {
-			this.key = reference;
-			this.value = servlet;
-		}
-
-		public K getKey() {
-			return key;
-		}
-
-		public V getValue() {
-			return value;
-		}
-
-		@Override
-		public int hashCode() {
-			final int prime = 31;
-			int result = 1;
-			result = prime * result + ((key == null) ? 0 : key.hashCode());
-			return result;
-		}
-
-		@Override
-		public boolean equals(Object obj) {
-			if (this == obj)
-				return true;
-			if (obj == null)
-				return false;
-			if (getClass() != obj.getClass())
-				return false;
-			Pair<?, ?> other = (Pair<?, ?>) obj;
-			if (key == null) {
-				if (other.key != null)
-					return false;
-			} else if (!key.equals(other.key))
-				return false;
-			return true;
-		}
-
+	private boolean isMatchingContext(
+			ServiceReference<ServletContext> servletContext,
+			ServiceReference<Servlet> servlet) {
+		return servletContext.getProperty("contextId").equals(
+				servlet.getProperty("contextId"));
 	}
 
 }

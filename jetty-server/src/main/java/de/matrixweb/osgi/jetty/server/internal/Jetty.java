@@ -1,11 +1,9 @@
 package de.matrixweb.osgi.jetty.server.internal;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Dictionary;
 import java.util.HashMap;
 import java.util.Hashtable;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -15,13 +13,14 @@ import org.eclipse.jetty.server.nio.SelectChannelConnector;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.Constants;
+import org.osgi.framework.ServiceReference;
 import org.osgi.framework.ServiceRegistration;
 import org.osgi.service.cm.ConfigurationException;
 import org.osgi.service.cm.ManagedService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import de.matrixweb.osgi.jetty.context.ServletContext;
+import de.matrixweb.osgi.jetty.api.ServletContext;
 
 /**
  * @author marwol
@@ -36,8 +35,8 @@ public class Jetty implements ManagedService {
 
 	private ServletRegistrator servletRegistrator;
 
-	private List<ServletContext> servletContexts = Collections
-			.synchronizedList(new ArrayList<ServletContext>());
+	private Map<ServletContext, ServiceReference<ServletContext>> servletContexts = Collections
+			.synchronizedMap(new HashMap<ServletContext, ServiceReference<ServletContext>>());
 
 	private Map<ServletContext, ServletContextHandler> handlers = new HashMap<ServletContext, ServletContextHandler>();
 
@@ -84,8 +83,9 @@ public class Jetty implements ManagedService {
 				server.start();
 				LOGGER.info("Started jetty server");
 
-				for (ServletContext servletContext : servletContexts) {
-					registerServletContext(servletContext);
+				for (Entry<ServletContext, ServiceReference<ServletContext>> entry : servletContexts
+						.entrySet()) {
+					registerServletContext(entry.getKey(), entry.getValue());
 				}
 				servletRegistrator.refresh();
 			} else {
@@ -94,7 +94,9 @@ public class Jetty implements ManagedService {
 		} catch (Exception e) {
 			throw new ConfigurationException("unknown", "unknown", e);
 		}
-		registration.setProperties(properties);
+		if (registration != null) {
+			registration.setProperties(properties);
+		}
 	}
 
 	private String getString(Dictionary<String, ?> properties, String key,
@@ -109,12 +111,13 @@ public class Jetty implements ManagedService {
 		return value != null ? Integer.valueOf(value.toString()) : ifNull;
 	}
 
-	public void addServletContext(ServletContext servletContext) {
+	public void addServletContext(ServletContext servletContext,
+			ServiceReference<ServletContext> reference) {
 		LOGGER.info("Adding ServletContext: {}", servletContext);
-		servletContexts.add(servletContext);
+		servletContexts.put(servletContext, reference);
 		if (server != null) {
 			try {
-				registerServletContext(servletContext);
+				registerServletContext(servletContext, reference);
 				servletRegistrator.addServletContext(servletContext,
 						handlers.get(servletContext));
 			} catch (Exception e) {
@@ -123,7 +126,8 @@ public class Jetty implements ManagedService {
 		}
 	}
 
-	public void removeServletContext(ServletContext servletContext) {
+	public void removeServletContext(ServletContext servletContext,
+			ServiceReference<ServletContext> reference) {
 		LOGGER.info("Removing ServletContext: {}", servletContext);
 		servletContexts.remove(servletContext);
 		if (server != null) {
@@ -133,19 +137,21 @@ public class Jetty implements ManagedService {
 		}
 	}
 
-	private void registerServletContext(ServletContext servletContext)
-			throws Exception {
-		ServletContextHandler servletContextHandler = new ServletContextHandler();
+	private void registerServletContext(ServletContext servletContext,
+			ServiceReference<ServletContext> reference) throws Exception {
+		ServletContextHandler servletContextHandler = new ServletContextHandler(
+				ServletContextHandler.SESSIONS | ServletContextHandler.SECURITY);
 		servletContextHandler.setConnectorNames(servletContext
 				.getConnectorNames());
-		servletContextHandler.setContextPath(servletContext.getContextPath());
+		servletContextHandler.setContextPath(reference.getProperty("contextId")
+				.toString());
 		servletContextHandler.setVirtualHosts(servletContext.getVirtualHosts());
-		for (Entry<String, String> entry : servletContext.getInitParameters()
-				.entrySet()) {
-			servletContextHandler.setInitParameter(entry.getKey(),
-					entry.getValue());
+		for (String key : reference.getPropertyKeys()) {
+			if (key.startsWith("init.")) {
+				servletContextHandler.setInitParameter(key.substring(5),
+						reference.getProperty(key).toString());
+			}
 		}
-
 		((ContextHandlerCollection) server.getHandler())
 				.addHandler(servletContextHandler);
 		servletContextHandler.start();
@@ -162,9 +168,14 @@ public class Jetty implements ManagedService {
 			LOGGER.error("Failed to unregister ServletContext", e);
 		}
 	}
-	
+
 	public Map<ServletContext, ServletContextHandler> getHandlers() {
 		return handlers;
+	}
+
+	public ServiceReference<ServletContext> getServletContextReference(
+			ServletContext servletContext) {
+		return servletContexts.get(servletContext);
 	}
 
 }

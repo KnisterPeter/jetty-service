@@ -4,7 +4,7 @@ import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceReference;
 import org.osgi.util.tracker.ServiceTracker;
 
-import de.matrixweb.osgi.jetty.context.ServletContext;
+import de.matrixweb.osgi.jetty.api.ServletContext;
 
 public class ServletContextHandlerServiceTracker extends
 		ServiceTracker<ServletContext, ServletContext> {
@@ -21,14 +21,14 @@ public class ServletContextHandlerServiceTracker extends
 	public ServletContext addingService(
 			ServiceReference<ServletContext> reference) {
 		ServletContext servletContext = super.addingService(reference);
-		jetty.addServletContext(servletContext);
+		jetty.addServletContext(servletContext, reference);
 		return servletContext;
 	}
 
 	@Override
 	public void removedService(ServiceReference<ServletContext> reference,
 			ServletContext service) {
-		jetty.removeServletContext(service);
+		jetty.removeServletContext(service, reference);
 		super.removedService(reference, service);
 	}
 

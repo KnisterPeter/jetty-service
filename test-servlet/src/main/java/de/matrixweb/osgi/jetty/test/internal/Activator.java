@@ -11,12 +11,13 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.eclipse.jetty.server.Request;
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceRegistration;
 
-import de.matrixweb.osgi.jetty.context.DefaultServletContext;
-import de.matrixweb.osgi.jetty.context.ServletContext;
+import de.matrixweb.osgi.jetty.api.DefaultServletContext;
+import de.matrixweb.osgi.jetty.api.ServletContext;
 
 public class Activator implements BundleActivator {
 
@@ -30,8 +31,10 @@ public class Activator implements BundleActivator {
 	public void start(BundleContext context) throws Exception {
 		// ServletContext
 		DefaultServletContext servletContext = new DefaultServletContext();
-		servletContext.setContextPath("/");
-		reg = context.registerService(ServletContext.class, servletContext, null);
+		Dictionary<String, Object> props = new Hashtable<String, Object>();
+		props.put("contextId", "/");
+		props.put("init.name", "value");
+		reg = context.registerService(ServletContext.class, servletContext, props);
 		
 		// Servlet
 		Servlet servlet = new HttpServlet() {
@@ -39,12 +42,16 @@ public class Activator implements BundleActivator {
 			protected void doGet(HttpServletRequest req,
 					HttpServletResponse resp) throws ServletException,
 					IOException {
+				req.getSession().setAttribute("attr", "sess-value " + req.getSession().getId());
+				
+				resp.setContentType("text/html");
 				PrintWriter writer = resp.getWriter();
-				writer.write("Hello World!");
+				writer.write("Hello World! (global="  + getServletContext().getInitParameter("name") + ")");
+				writer.write("<br /><a href=\"/msg\">next</a>");
 				writer.close();
 			}
 		};
-		Dictionary<String, Object> props = new Hashtable<String, Object>();
+		props = new Hashtable<String, Object>();
 		props.put("alias", "/");
 		props.put("contextId", "/");
 		reg2 = context.registerService(Servlet.class, servlet, props);
@@ -55,8 +62,14 @@ public class Activator implements BundleActivator {
 			protected void doGet(HttpServletRequest req,
 					HttpServletResponse resp) throws ServletException,
 					IOException {
+				Object str = req.getSession().getAttribute("attr");
+				req.getSession().removeAttribute("attr");
+				
+				resp.setContentType("text/html");
 				PrintWriter writer = resp.getWriter();
 				writer.write("Hello World " + getInitParameter("number") + "!");
+				writer.write("<br/>" + str);
+				writer.write("<br /><a href=\"/\">next</a>");
 				writer.close();
 			}
 		};
