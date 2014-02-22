@@ -1,8 +1,11 @@
 package de.matrixweb.osgi.jetty.server.internal;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Dictionary;
 import java.util.HashMap;
 import java.util.Hashtable;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -33,11 +36,14 @@ public class Jetty implements ManagedService {
 
 	private ServletRegistrator servletRegistrator;
 
+	private List<ServletContext> servletContexts = Collections
+			.synchronizedList(new ArrayList<ServletContext>());
+
 	private Map<ServletContext, ServletContextHandler> handlers = new HashMap<ServletContext, ServletContextHandler>();
 
-	public Jetty(BundleContext context,
-			ServletRegistrator servletRegistrator) {
+	public Jetty(BundleContext context, ServletRegistrator servletRegistrator) {
 		this.servletRegistrator = servletRegistrator;
+		servletRegistrator.setJetty(this);
 
 		Dictionary<String, Object> props = new Hashtable<String, Object>();
 		props.put(Constants.SERVICE_PID, "jettyservice");
@@ -64,6 +70,7 @@ public class Jetty implements ManagedService {
 			if (server != null) {
 				server.stop();
 				server = null;
+				handlers.clear();
 			}
 			if (properties != null) {
 				server = new Server();
@@ -77,7 +84,10 @@ public class Jetty implements ManagedService {
 				server.start();
 				LOGGER.info("Started jetty server");
 
-				// TODO: Refresh servletregistrator
+				for (ServletContext servletContext : servletContexts) {
+					registerServletContext(servletContext);
+				}
+				servletRegistrator.refresh();
 			} else {
 				LOGGER.info("Stopped jetty server");
 			}
@@ -101,16 +111,30 @@ public class Jetty implements ManagedService {
 
 	public void addServletContext(ServletContext servletContext) {
 		LOGGER.info("Adding ServletContext: {}", servletContext);
-		try {
-			servletRegistrator.addServletContext(servletContext,
-					registerServletContext(servletContext));
-		} catch (Exception e) {
-			LOGGER.error("Failed to register ServletContext", e);
+		servletContexts.add(servletContext);
+		if (server != null) {
+			try {
+				registerServletContext(servletContext);
+				servletRegistrator.addServletContext(servletContext,
+						handlers.get(servletContext));
+			} catch (Exception e) {
+				LOGGER.error("Failed to register ServletContext", e);
+			}
 		}
 	}
 
-	private ServletContextHandler registerServletContext(
-			ServletContext servletContext) throws Exception {
+	public void removeServletContext(ServletContext servletContext) {
+		LOGGER.info("Removing ServletContext: {}", servletContext);
+		servletContexts.remove(servletContext);
+		if (server != null) {
+			servletRegistrator.removeServletContext(servletContext,
+					handlers.get(servletContext));
+			unregisterServletContext(servletContext);
+		}
+	}
+
+	private void registerServletContext(ServletContext servletContext)
+			throws Exception {
 		ServletContextHandler servletContextHandler = new ServletContextHandler();
 		servletContextHandler.setConnectorNames(servletContext
 				.getConnectorNames());
@@ -125,15 +149,10 @@ public class Jetty implements ManagedService {
 		((ContextHandlerCollection) server.getHandler())
 				.addHandler(servletContextHandler);
 		servletContextHandler.start();
-		servletRegistrator.addServletContext(servletContext,
-				servletContextHandler);
-
 		handlers.put(servletContext, servletContextHandler);
-		return servletContextHandler;
 	}
 
-	public void removeServletContext(ServletContext servletContext) {
-		LOGGER.info("Removing ServletContext: {}", servletContext);
+	private void unregisterServletContext(ServletContext servletContext) {
 		try {
 			ServletContextHandler handler = handlers.remove(servletContext);
 			servletRegistrator.removeServletContext(servletContext, handler);
@@ -142,6 +161,10 @@ public class Jetty implements ManagedService {
 		} catch (Exception e) {
 			LOGGER.error("Failed to unregister ServletContext", e);
 		}
+	}
+	
+	public Map<ServletContext, ServletContextHandler> getHandlers() {
+		return handlers;
 	}
 
 }
