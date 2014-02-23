@@ -6,30 +6,26 @@ import org.osgi.util.tracker.ServiceTracker;
 
 import de.matrixweb.osgi.jetty.api.ServletContext;
 
-public class ServletContextHandlerServiceTracker extends
-		ServiceTracker<ServletContext, ServletContext> {
+public class ServletContextHandlerServiceTracker extends ServiceTracker<ServletContext, ServletContext> {
 
-	private Jetty jetty;
+  private Jetty jetty;
 
-	public ServletContextHandlerServiceTracker(BundleContext context,
-			Jetty jetty) {
-		super(context, ServletContext.class, null);
-		this.jetty = jetty;
-	}
+  public ServletContextHandlerServiceTracker(final BundleContext context, final Jetty jetty) {
+    super(context, ServletContext.class, null);
+    this.jetty = jetty;
+  }
 
-	@Override
-	public ServletContext addingService(
-			ServiceReference<ServletContext> reference) {
-		ServletContext servletContext = super.addingService(reference);
-		jetty.addServletContext(servletContext, reference);
-		return servletContext;
-	}
+  @Override
+  public ServletContext addingService(final ServiceReference<ServletContext> reference) {
+    final ServletContext servletContext = super.addingService(reference);
+    this.jetty.addServletContext(servletContext, reference);
+    return servletContext;
+  }
 
-	@Override
-	public void removedService(ServiceReference<ServletContext> reference,
-			ServletContext service) {
-		jetty.removeServletContext(service, reference);
-		super.removedService(reference, service);
-	}
+  @Override
+  public void removedService(final ServiceReference<ServletContext> reference, final ServletContext service) {
+    this.jetty.removeServletContext(service, reference);
+    super.removedService(reference, service);
+  }
 
 }
