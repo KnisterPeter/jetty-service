@@ -50,10 +50,13 @@ public class Jetty implements ManagedService {
   public Jetty(final BundleContext context, final Registrator registrator) {
     this.registrator = registrator;
     registrator.setJetty(this);
+    this.registration = context.registerService(ManagedService.class, this, getDefaultProperties());
+  }
 
+  private Dictionary<String, Object> getDefaultProperties() {
     final Dictionary<String, Object> props = new Hashtable<String, Object>();
     props.put(Constants.SERVICE_PID, "jettyservice");
-    this.registration = context.registerService(ManagedService.class, this, props);
+    return props;
   }
 
   /**
@@ -96,7 +99,6 @@ public class Jetty implements ManagedService {
         for (final Entry<ServletContext, ServiceReference<ServletContext>> entry : this.servletContexts.entrySet()) {
           registerServletContext(entry.getKey(), entry.getValue());
         }
-        this.registrator.refresh();
       } else {
         LOGGER.info("Stopped jetty server");
       }
@@ -104,7 +106,7 @@ public class Jetty implements ManagedService {
       throw new ConfigurationException("unknown", "unknown", e);
     }
     if (this.registration != null) {
-      this.registration.setProperties(properties);
+      this.registration.setProperties(properties != null ? properties : getDefaultProperties());
     }
   }
 
@@ -124,12 +126,11 @@ public class Jetty implements ManagedService {
    */
   public synchronized void addServletContext(final ServletContext servletContext,
       final ServiceReference<ServletContext> reference) {
-    LOGGER.info("Adding ServletContext: {}", servletContext);
+    LOGGER.debug("Adding ServletContext: {}", servletContext);
     this.servletContexts.put(servletContext, reference);
     if (this.server != null && !this.handlers.containsKey(servletContext)) {
       try {
         registerServletContext(servletContext, reference);
-        this.registrator.addServletContext(servletContext, this.handlers.get(servletContext));
       } catch (final Exception e) {
         LOGGER.error("Failed to register ServletContext", e);
       }
@@ -142,7 +143,7 @@ public class Jetty implements ManagedService {
    */
   public synchronized void removeServletContext(final ServletContext servletContext,
       final ServiceReference<ServletContext> reference) {
-    LOGGER.info("Removing ServletContext: {}", servletContext);
+    LOGGER.debug("Removing ServletContext: {}", servletContext);
     if (this.server != null && this.handlers.containsKey(servletContext)) {
       unregisterServletContext(servletContext);
     }
@@ -176,8 +177,7 @@ public class Jetty implements ManagedService {
         servletContextHandler.start();
       }
       this.handlers.put(servletContext, servletContextHandler);
-    } else {
-      LOGGER.warn("Already registered servlet-context: FIX DOUBLE REG");
+      this.registrator.addServletContext(servletContext, this.handlers.get(servletContext));
     }
   }
 

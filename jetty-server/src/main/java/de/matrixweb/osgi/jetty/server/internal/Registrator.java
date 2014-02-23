@@ -58,12 +58,6 @@ public class Registrator {
     this.jetty = jetty;
   }
 
-  synchronized void refresh() {
-    for (final Entry<ServletContext, ServletContextHandler> pair : this.jetty.getHandlers().entrySet()) {
-      registerServletContext(pair.getKey(), pair.getValue());
-    }
-  }
-
   /**
    * @param servletContext
    * @param handler
