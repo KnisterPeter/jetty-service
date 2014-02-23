@@ -1,5 +1,8 @@
 package de.matrixweb.osgi.jetty.api;
 
+/**
+ * @author markusw
+ */
 public class DefaultServletContext implements ServletContext {
 
   private String[] connectorNames;
@@ -11,6 +14,9 @@ public class DefaultServletContext implements ServletContext {
     return this.connectorNames;
   }
 
+  /**
+   * @param connectorNames
+   */
   public void setConnectorNames(final String[] connectorNames) {
     this.connectorNames = connectorNames;
   }
@@ -20,6 +26,9 @@ public class DefaultServletContext implements ServletContext {
     return this.virtualHosts;
   }
 
+  /**
+   * @param virtualHosts
+   */
   public void setVirtualHosts(final String[] virtualHosts) {
     this.virtualHosts = virtualHosts;
   }

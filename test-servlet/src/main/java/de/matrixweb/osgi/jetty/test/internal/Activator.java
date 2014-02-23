@@ -32,21 +32,29 @@ import org.slf4j.LoggerFactory;
 import de.matrixweb.osgi.jetty.api.DefaultServletContext;
 import de.matrixweb.osgi.jetty.api.ServletContext;
 
+/**
+ * @author markusw
+ */
 public class Activator implements BundleActivator {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(Activator.class);
 
-  private List<ServiceRegistration<?>> regs = new ArrayList<ServiceRegistration<?>>();
+  private final List<ServiceRegistration<?>> regs = new ArrayList<ServiceRegistration<?>>();
 
   @Override
   public void start(final BundleContext context) throws Exception {
-    // ServletContext
     final DefaultServletContext servletContext = new DefaultServletContext();
-    Dictionary<String, Object> props = new Hashtable<String, Object>();
+    final Dictionary<String, Object> props = new Hashtable<String, Object>();
     props.put(ServletContext.CONTEXT_ID, "/");
     props.put("init.name", "value");
     this.regs.add(context.registerService(ServletContext.class, servletContext, props));
 
+    createListeners(context);
+    createFilters(context);
+    createServlets(context);
+  }
+
+  private void createListeners(final BundleContext context) {
     final ServletContextListener scl = new ServletContextListener() {
       @Override
       public void contextInitialized(final ServletContextEvent sce) {
@@ -58,10 +66,12 @@ public class Activator implements BundleActivator {
         LOGGER.info("CONTEXT DESTROYED");
       }
     };
+    final Dictionary<String, Object> props = new Hashtable<String, Object>();
     props.put(ServletContext.CONTEXT_ID, "/");
     this.regs.add(context.registerService(EventListener.class, scl, props));
+  }
 
-    // Filter
+  private void createFilters(final BundleContext context) {
     Filter filter = new Filter() {
       @Override
       public void init(final FilterConfig filterConfig) throws ServletException {
@@ -80,13 +90,12 @@ public class Activator implements BundleActivator {
         LOGGER.info("Activator.start(...).new Filter() {...}.destroy() FILTER#1");
       }
     };
-    props = new Hashtable<String, Object>();
+    Dictionary<String, Object> props = new Hashtable<String, Object>();
     props.put(ServletContext.CONTEXT_ID, "/");
     props.put(ServletContext.ALIAS, "/msg");
     props.put(Constants.SERVICE_RANKING, 1);
     this.regs.add(context.registerService(Filter.class, filter, props));
 
-    // Filter
     filter = new Filter() {
       @Override
       public void init(final FilterConfig filterConfig) throws ServletException {
@@ -111,7 +120,6 @@ public class Activator implements BundleActivator {
     props.put(Constants.SERVICE_RANKING, 100);
     this.regs.add(context.registerService(Filter.class, filter, props));
 
-    // Filter
     filter = new Filter() {
       @Override
       public void init(final FilterConfig filterConfig) throws ServletException {
@@ -134,9 +142,12 @@ public class Activator implements BundleActivator {
     props.put(ServletContext.CONTEXT_ID, "/");
     props.put("servlet.name", "Home");
     this.regs.add(context.registerService(Filter.class, filter, props));
+  }
 
-    // Servlet
+  private void createServlets(final BundleContext context) {
     Servlet servlet = new HttpServlet() {
+      private static final long serialVersionUID = 316577294919021093L;
+
       @Override
       public void init(final ServletConfig config) throws ServletException {
         LOGGER.info("SERVLET init: {}", config);
@@ -161,14 +172,15 @@ public class Activator implements BundleActivator {
         super.destroy();
       }
     };
-    props = new Hashtable<String, Object>();
+    Dictionary<String, Object> props = new Hashtable<String, Object>();
     props.put(ServletContext.CONTEXT_ID, "/");
     props.put(ServletContext.ALIAS, "/");
     props.put(ServletContext.NAME, "Home");
     this.regs.add(context.registerService(Servlet.class, servlet, props));
 
-    // Servlet
     servlet = new HttpServlet() {
+      private static final long serialVersionUID = 2170992479025460048L;
+
       @Override
       protected void doGet(final HttpServletRequest req, final HttpServletResponse resp) throws ServletException,
           IOException {

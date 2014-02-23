@@ -31,15 +31,18 @@ import org.slf4j.LoggerFactory;
 
 import de.matrixweb.osgi.jetty.api.ServletContext;
 
+/**
+ * @author markusw
+ */
 public class Registrator {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(Registrator.class);
 
   private Jetty jetty;
 
-  private Map<ServiceReference<EventListener>, EventListener> listeners = new HashMap<ServiceReference<EventListener>, EventListener>();
+  private final Map<ServiceReference<EventListener>, EventListener> listeners = new HashMap<ServiceReference<EventListener>, EventListener>();
 
-  private Map<ServiceReference<Filter>, Filter> filters = new TreeMap<ServiceReference<Filter>, Filter>(
+  private final Map<ServiceReference<Filter>, Filter> filters = new TreeMap<ServiceReference<Filter>, Filter>(
       new Comparator<ServiceReference<Filter>>() {
         @Override
         public int compare(final ServiceReference<Filter> r1, final ServiceReference<Filter> r2) {
@@ -49,18 +52,22 @@ public class Registrator {
         }
       });
 
-  private Map<ServiceReference<Servlet>, Servlet> servlets = new HashMap<ServiceReference<Servlet>, Servlet>();
+  private final Map<ServiceReference<Servlet>, Servlet> servlets = new HashMap<ServiceReference<Servlet>, Servlet>();
 
-  public void setJetty(final Jetty jetty) {
+  void setJetty(final Jetty jetty) {
     this.jetty = jetty;
   }
 
-  public synchronized void refresh() {
+  synchronized void refresh() {
     for (final Entry<ServletContext, ServletContextHandler> pair : this.jetty.getHandlers().entrySet()) {
       registerServletContext(pair.getKey(), pair.getValue());
     }
   }
 
+  /**
+   * @param servletContext
+   * @param handler
+   */
   public synchronized void addServletContext(final ServletContext servletContext, final ServletContextHandler handler) {
     registerServletContext(servletContext, handler);
   }
@@ -84,6 +91,10 @@ public class Registrator {
     }
   }
 
+  /**
+   * @param servletContext
+   * @param handler
+   */
   public synchronized void removeServletContext(final ServletContext servletContext, final ServletContextHandler handler) {
     unregisterServletContext(servletContext, handler);
   }
@@ -107,6 +118,10 @@ public class Registrator {
     }
   }
 
+  /**
+   * @param reference
+   * @param listener
+   */
   public synchronized void addListener(final ServiceReference<EventListener> reference, final EventListener listener) {
     if (listener instanceof ServletContextListener || listener instanceof ServletContextAttributeListener
         || listener instanceof ServletRequestListener || listener instanceof ServletRequestAttributeListener) {
@@ -125,6 +140,10 @@ public class Registrator {
     }
   }
 
+  /**
+   * @param reference
+   * @param listener
+   */
   public synchronized void removeListener(final ServiceReference<EventListener> reference, final EventListener listener) {
     if (this.listeners.containsKey(reference)) {
       this.listeners.remove(reference);
@@ -140,6 +159,10 @@ public class Registrator {
     }
   }
 
+  /**
+   * @param reference
+   * @param filter
+   */
   public synchronized void addFilter(final ServiceReference<Filter> reference, final Filter filter) {
     if (!this.filters.containsKey(reference)) {
       this.filters.put(reference, filter);
@@ -155,6 +178,10 @@ public class Registrator {
     }
   }
 
+  /**
+   * @param reference
+   * @param filter
+   */
   public synchronized void removeFilter(final ServiceReference<Filter> reference, final Filter filter) {
     if (this.filters.containsKey(reference)) {
       this.filters.remove(reference);
@@ -170,6 +197,10 @@ public class Registrator {
     }
   }
 
+  /**
+   * @param reference
+   * @param servlet
+   */
   public synchronized void addServlet(final ServiceReference<Servlet> reference, final Servlet servlet) {
     if (!this.servlets.containsKey(reference)) {
       this.servlets.put(reference, servlet);
@@ -185,6 +216,10 @@ public class Registrator {
     }
   }
 
+  /**
+   * @param reference
+   * @param servlet
+   */
   public synchronized void removeServlet(final ServiceReference<Servlet> reference, final Servlet servlet) {
     if (this.servlets.containsKey(reference)) {
       this.servlets.remove(reference);

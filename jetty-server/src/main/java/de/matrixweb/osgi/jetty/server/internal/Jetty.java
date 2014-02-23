@@ -36,13 +36,17 @@ public class Jetty implements ManagedService {
 
   private ContextHandlerCollection handlerCollection;
 
-  private Registrator registrator;
+  private final Registrator registrator;
 
-  private Map<ServletContext, ServiceReference<ServletContext>> servletContexts = Collections
+  private final Map<ServletContext, ServiceReference<ServletContext>> servletContexts = Collections
       .synchronizedMap(new HashMap<ServletContext, ServiceReference<ServletContext>>());
 
-  private Map<ServletContext, ServletContextHandler> handlers = new HashMap<ServletContext, ServletContextHandler>();
+  private final Map<ServletContext, ServletContextHandler> handlers = new HashMap<ServletContext, ServletContextHandler>();
 
+  /**
+   * @param context
+   * @param registrator
+   */
   public Jetty(final BundleContext context, final Registrator registrator) {
     this.registrator = registrator;
     registrator.setJetty(this);
@@ -52,6 +56,9 @@ public class Jetty implements ManagedService {
     this.registration = context.registerService(ManagedService.class, this, props);
   }
 
+  /**
+   * 
+   */
   public void dispose() {
     if (this.registration != null) {
       try {
@@ -111,6 +118,10 @@ public class Jetty implements ManagedService {
     return value != null ? Integer.valueOf(value.toString()) : ifNull;
   }
 
+  /**
+   * @param servletContext
+   * @param reference
+   */
   public synchronized void addServletContext(final ServletContext servletContext,
       final ServiceReference<ServletContext> reference) {
     LOGGER.info("Adding ServletContext: {}", servletContext);
@@ -125,6 +136,10 @@ public class Jetty implements ManagedService {
     }
   }
 
+  /**
+   * @param servletContext
+   * @param reference
+   */
   public synchronized void removeServletContext(final ServletContext servletContext,
       final ServiceReference<ServletContext> reference) {
     LOGGER.info("Removing ServletContext: {}", servletContext);
@@ -179,11 +194,11 @@ public class Jetty implements ManagedService {
     }
   }
 
-  public Map<ServletContext, ServletContextHandler> getHandlers() {
+  Map<ServletContext, ServletContextHandler> getHandlers() {
     return this.handlers;
   }
 
-  public ServiceReference<ServletContext> getServletContextReference(final ServletContext servletContext) {
+  ServiceReference<ServletContext> getServletContextReference(final ServletContext servletContext) {
     return this.servletContexts.get(servletContext);
   }
 
