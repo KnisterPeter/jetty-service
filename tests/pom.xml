@@ -7,8 +7,16 @@
     <artifactId>jetty-service</artifactId>
     <version>0.0.1-SNAPSHOT</version>
   </parent>
-  <artifactId>jetty-server</artifactId>
-  <packaging>bundle</packaging>
+  <artifactId>tests</artifactId>
+  <packaging>pom</packaging>
+
+  <modules>
+    <module>context1</module>
+    <module>filters</module>
+    <module>index-servlet</module>
+    <module>listener</module>
+    <module>servlet-and-filter</module>
+  </modules>
 
   <dependencies>
     <dependency>
@@ -17,19 +25,4 @@
       <version>${project.version}</version>
     </dependency>
   </dependencies>
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.felix</groupId>
-        <artifactId>maven-bundle-plugin</artifactId>
-        <version>2.4.0</version>
-        <extensions>true</extensions>
-        <configuration>
-          <instructions>
-            <Bundle-Activator>de.matrixweb.osgi.jetty.server.internal.Activator</Bundle-Activator>
-          </instructions>
-        </configuration>
-      </plugin>
-    </plugins>
-  </build>
 </project>

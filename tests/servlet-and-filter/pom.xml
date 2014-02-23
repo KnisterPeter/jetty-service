@@ -4,19 +4,12 @@
 
   <parent>
     <groupId>de.matrixweb.osgi.jetty</groupId>
-    <artifactId>jetty-service</artifactId>
+    <artifactId>tests</artifactId>
     <version>0.0.1-SNAPSHOT</version>
   </parent>
-  <artifactId>jetty-server</artifactId>
+  <artifactId>test-servlet-and-filter</artifactId>
   <packaging>bundle</packaging>
 
-  <dependencies>
-    <dependency>
-      <groupId>${project.groupId}</groupId>
-      <artifactId>jetty-api</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-  </dependencies>
   <build>
     <plugins>
       <plugin>
@@ -26,7 +19,7 @@
         <extensions>true</extensions>
         <configuration>
           <instructions>
-            <Bundle-Activator>de.matrixweb.osgi.jetty.server.internal.Activator</Bundle-Activator>
+            <Bundle-Activator>de.matrixweb.osgi.jetty.test2.internal.ServletAndFilterActivator</Bundle-Activator>
           </instructions>
         </configuration>
       </plugin>

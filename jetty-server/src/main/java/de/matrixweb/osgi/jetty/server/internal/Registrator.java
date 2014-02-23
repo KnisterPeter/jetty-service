@@ -237,7 +237,7 @@ public class Registrator {
 
   private void registerListener(final ServletContextHandler handler, final ServiceReference<EventListener> reference,
       final EventListener listener) {
-    LOGGER.info("Adding listener: {}", listener);
+    LOGGER.debug("Adding listener: {}", listener);
 
     handler.addEventListener(listener);
     if (listener instanceof ServletContextListener) {
@@ -247,7 +247,7 @@ public class Registrator {
 
   private void unregisterListener(final ServletContextHandler handler, final ServiceReference<EventListener> reference,
       final EventListener listener) {
-    LOGGER.info("Removing listener: {}", listener);
+    LOGGER.debug("Removing listener: {}", listener);
 
     if (handler.getEventListeners() != null) {
       final List<EventListener> listeners = new ArrayList<EventListener>();
@@ -266,7 +266,7 @@ public class Registrator {
 
   private void registerFilter(final ServletContextHandler handler, final ServiceReference<Filter> reference,
       final Filter filter) {
-    LOGGER.info("Adding filter: {}", filter);
+    LOGGER.debug("Adding filter: {}", filter);
 
     final List<FilterHolder> holders = new ArrayList<FilterHolder>(Arrays.asList(handler.getServletHandler()
         .getFilters()));
@@ -296,12 +296,12 @@ public class Registrator {
     filterMapping.setDispatches(FilterMapping.ALL);
     final Object alias = reference.getProperty(ServletContext.ALIAS);
     if (alias != null) {
-      LOGGER.info("Mapping Filter to: {}", alias);
+      LOGGER.debug("Mapping Filter to: {}", alias);
       filterMapping.setPathSpec(alias.toString());
     }
     final Object servletName = reference.getProperty("servlet.name");
     if (servletName != null) {
-      LOGGER.info("Mapping Filter to: {}", servletName);
+      LOGGER.debug("Mapping Filter to: {}", servletName);
       filterMapping.setServletName(servletName.toString());
     }
     if (mappings.size() <= idx) {
@@ -316,7 +316,7 @@ public class Registrator {
 
   private void unregisterFilter(final ServletContextHandler handler, final ServiceReference<Filter> reference,
       final Filter filter) {
-    LOGGER.info("Removing filter: {}", filter);
+    LOGGER.debug("Removing filter: {}", filter);
 
     final List<String> names = new ArrayList<String>();
     final List<FilterHolder> filters = new ArrayList<FilterHolder>();
@@ -344,11 +344,11 @@ public class Registrator {
 
   private void registerServlet(final ServletContextHandler servletContextHandler,
       final ServiceReference<Servlet> reference, final Servlet servlet) {
-    LOGGER.info("Adding servlet: {}", servlet);
+    LOGGER.debug("Adding servlet: {}", servlet);
 
     final Object mapping = reference.getProperty(ServletContext.ALIAS);
     if (mapping != null) {
-      LOGGER.info("Mapping Servlet to: {}", mapping);
+      LOGGER.debug("Mapping Servlet to: {}", mapping);
       final ServletHolder holder = new ServletHolder(servlet);
       setName(holder, reference);
       holder.setAsyncSupported(true);
@@ -365,7 +365,7 @@ public class Registrator {
 
   private void unregisterServlet(final ServletContextHandler handler, final ServiceReference<Servlet> reference,
       final Servlet servlet) {
-    LOGGER.info("Removing servlet: {}", servlet);
+    LOGGER.debug("Removing servlet: {}", servlet);
 
     final List<String> names = new ArrayList<String>();
     final List<ServletHolder> servlets = new ArrayList<ServletHolder>();
